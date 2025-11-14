@@ -109,7 +109,7 @@ async function* jsonStreamParser(stream: ReadableStream<Uint8Array>): AsyncGener
             buffer += decoder.decode(value, {stream: true});
 
             // Check for complete JSON lines separated by newline
-            let newlineIndex: number;
+            let newlineIndex;
             while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
                 const line = buffer.substring(0, newlineIndex).trim();
                 buffer = buffer.substring(newlineIndex + 1);
