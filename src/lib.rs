@@ -1,4 +1,5 @@
-use futures::stream::{self, Stream, StreamExt};
+use futures::FutureExt;
+use futures::stream::{self, BoxStream, Stream, StreamExt};
 use reqwest::{Client, IntoUrl};
 use serde::{Deserialize, Serialize};
 use std::pin::Pin;
@@ -78,7 +79,7 @@ pub enum APIResponse {
 // --- Client Generator Return Structure ---
 
 /// Unified data type returned to the user by the client generator (Stream).
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum GenerationYield {
     /// Contains the generated text/image data chunk and step information.
     Data {
@@ -200,32 +201,33 @@ impl APIClient {
         let buffer = Arc::new(Mutex::new(String::new()));
 
         // Use a helper to process the stream's byte chunks, converting them to newline-separated JSON strings
-        let json_line_stream = stream.flat_map(|chunk_res| {
-            let buffer = Arc::clone(&buffer);
-            async move {
-                let chunk = match chunk_res {
-                    Ok(c) => c,
-                    Err(e) => {
-                        return stream::once(async move { Err(APIError::RequestError(e)) }).boxed();
-                    }
-                };
-
-                let mut buffer_ = buffer.lock().unwrap();
-                // Convert bytes to string and split into lines
-                buffer_.push_str(std::str::from_utf8(&chunk).unwrap_or(""));
-                let lines = buffer_
-                    .split('\n')
-                    .map(|s| s.trim().to_string())
-                    .filter(|s| !s.is_empty())
-                    .collect::<Vec<String>>();
-                let mut line_sum = 0;
-                for line in &lines {
-                    line_sum += line.len() + 1;
+        let json_line_stream = stream.flat_map(move |chunk_res| {
+            let buffer__ = Arc::clone(&buffer);
+            let chunk = match chunk_res {
+                Ok(c) => c,
+                Err(e) => {
+                    return stream::once(async move { Err(APIError::RequestError(e)) }).boxed();
                 }
-                buffer_.truncate(line_sum);
-                // Convert lines to a Result<String, APIError> stream
-                stream::iter(lines).map(Ok).boxed()
-            }
+            };
+            let mut buffer_ = buffer__.lock().unwrap();
+            // Convert bytes to string and split into lines
+            buffer_.push_str(std::str::from_utf8(&chunk).unwrap_or(""));
+            let lines = buffer_
+                .split('\n')
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect::<Vec<String>>();
+            let (complete_lines, incomplete_line) = {
+                let parts: Vec<String> = lines;
+                let last_idx = parts.len().saturating_sub(1);
+                let complete = parts[..last_idx].iter().cloned().collect::<Vec<String>>();
+                let incomplete = parts.last().unwrap_or(&"".to_string()).clone();
+                (complete, incomplete)
+            };
+            buffer_.clear();
+            buffer_.push_str(&incomplete_line);
+            // Convert lines to a Result<String, APIError> stream
+            stream::iter(complete_lines).map(Ok).boxed()
         });
 
         // 5. Convert JSON Line Stream to GenerationYield Stream
@@ -273,12 +275,10 @@ impl APIClient {
         });
 
         // 6. Return Pin<Box<dyn Stream>>
-        unsafe {
-            Ok(Box::pin(final_stream)
-                as Pin<
-                    Box<dyn Stream<Item = Result<GenerationYield, APIError>> + Send>,
-                >)
-        }
+        Ok(Box::pin(final_stream)
+            as Pin<
+                Box<dyn Stream<Item = Result<GenerationYield, APIError>> + Send>,
+            >)
     }
 }
 
@@ -290,7 +290,7 @@ mod tests {
 
     // Assuming you have a valid API key and Model ID
     const API_KEY: &str = "YOUR_API_KEY";
-    const BASE_URL: &str = "https://sintelli.workers.dev";
+    const BASE_URL: &str = "https://sintelli.rand0mk4cas.workers.dev";
     const TEST_MODEL_ID: &str = "rand0mdevel0per/l0.sydney@latest";
 
     #[tokio::test]

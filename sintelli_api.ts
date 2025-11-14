@@ -143,7 +143,7 @@ export class APIClient {
      * @param api_key Your API key.
      * @param base_url The root URL of the API server (e.g., https://yourdomain.com).
      */
-    constructor(api_key: string = "", base_url: string = "https://sintelli.workers.dev") {
+    constructor(api_key: string = "", base_url: string = "https://sintelli.rand0mk4cas.workers.dev") {
         this.api_key = api_key;
         // Remove trailing slash from base_url for correct path concatenation
         this.base_url = base_url.replace(/\/$/, "");
