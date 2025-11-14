@@ -1,9 +1,8 @@
-use futures::stream::{self, Stream, StreamExt};
 use reqwest::{Client, IntoUrl};
 use serde::{Deserialize, Serialize};
-use std::pin::Pin;
-use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use futures::stream::{self, Stream, StreamExt};
+use std::pin::Pin;
 
 /// Error types that can occur during an API call.
 #[derive(Debug, thiserror::Error)]
@@ -87,9 +86,14 @@ pub enum GenerationYield {
         tokens: u32,
     },
     /// Session initialization or resumption information.
-    Session { session_id: String },
+    Session {
+        session_id: String,
+    },
     /// Final billing information.
-    Billing { cost: u32, cost_per_mtk: u32 },
+    Billing {
+        cost: u32,
+        cost_per_mtk: u32,
+    },
 }
 
 // --- API Client ---
@@ -145,8 +149,7 @@ impl APIClient {
         timeout: u32,
         session_id: Option<String>,
         model_id: Option<String>,
-    ) -> Result<Pin<Box<dyn Stream<Item = Result<GenerationYield, APIError>> + Send>>, APIError>
-    {
+    ) -> Result<Pin<Box<dyn Stream<Item = Result<GenerationYield, APIError>> + Send>>, APIError> {
         // 1. Input Validation
         if self.api_key.is_empty() || prompt.is_empty() || self.base_url.is_empty() {
             return Err(APIError::MissingCredentials);
@@ -188,44 +191,29 @@ impl APIClient {
         // Check for non-streaming errors
         if !response.status().is_success() {
             let status = response.status();
-            let body = response
-                .text()
-                .await
-                .unwrap_or_else(|_| "Failed to read response body".to_string());
+            let body = response.text().await.unwrap_or_else(|_| "Failed to read response body".to_string());
             return Err(APIError::ApiServerError(status, body));
         }
 
         // 4. Create a Stream to process the response body
         let stream = response.bytes_stream();
-        let buffer = Arc::new(Mutex::new(String::new()));
 
         // Use a helper to process the stream's byte chunks, converting them to newline-separated JSON strings
         let json_line_stream = stream.flat_map(|chunk_res| {
-            let buffer = Arc::clone(&buffer);
-            async move {
-                let chunk = match chunk_res {
-                    Ok(c) => c,
-                    Err(e) => {
-                        return stream::once(async move { Err(APIError::RequestError(e)) }).boxed();
-                    }
-                };
+            let chunk = match chunk_res {
+                Ok(c) => c,
+                Err(e) => return stream::once(async move { Err(APIError::RequestError(e)) }).boxed(),
+            };
 
-                let mut buffer_ = buffer.lock().unwrap();
-                // Convert bytes to string and split into lines
-                buffer_.push_str(std::str::from_utf8(&chunk).unwrap_or(""));
-                let lines = buffer_
-                    .split('\n')
-                    .map(|s| s.trim().to_string())
-                    .filter(|s| !s.is_empty())
-                    .collect::<Vec<String>>();
-                let mut line_sum = 0;
-                for line in &lines {
-                    line_sum += line.len() + 1;
-                }
-                buffer_.truncate(line_sum);
-                // Convert lines to a Result<String, APIError> stream
-                stream::iter(lines).map(Ok).boxed()
-            }
+            // Convert bytes to string and split into lines
+            let lines = String::from_utf8_lossy(&chunk)
+                .split('\n')
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect::<Vec<String>>();
+
+            // Convert lines to a Result<String, APIError> stream
+            stream::iter(lines).map(Ok).boxed()
         });
 
         // 5. Convert JSON Line Stream to GenerationYield Stream
@@ -248,37 +236,16 @@ impl APIClient {
 
                 // Map API Response to GenerationYield
                 match api_response {
-                    APIResponse::Error { message } => Some(Err(APIError::StreamError(format!(
-                        "API returned an error: {}",
-                        message
-                    )))),
-                    APIResponse::Initialized { session_id } => {
-                        Some(Ok(GenerationYield::Session { session_id }))
-                    }
-                    APIResponse::Generating {
-                        delta,
-                        step,
-                        tokens,
-                        ..
-                    } => Some(Ok(GenerationYield::Data {
-                        delta,
-                        step,
-                        tokens,
-                    })),
-                    APIResponse::Completed { cost, cost_per_mtk } => {
-                        Some(Ok(GenerationYield::Billing { cost, cost_per_mtk }))
-                    }
+                    APIResponse::Error { message } => Some(Err(APIError::StreamError(format!("API returned an error: {}", message)))),
+                    APIResponse::Initialized { session_id } => Some(Ok(GenerationYield::Session { session_id })),
+                    APIResponse::Generating { delta, step, tokens, .. } => Some(Ok(GenerationYield::Data { delta, step, tokens })),
+                    APIResponse::Completed { cost, cost_per_mtk } => Some(Ok(GenerationYield::Billing { cost, cost_per_mtk })),
                 }
             }
         });
 
         // 6. Return Pin<Box<dyn Stream>>
-        unsafe {
-            Ok(Box::pin(final_stream)
-                as Pin<
-                    Box<dyn Stream<Item = Result<GenerationYield, APIError>> + Send>,
-                >)
-        }
+        Ok(Box::pin(final_stream) as Pin<Box<dyn Stream<Item = Result<GenerationYield, APIError>> + Send>>)
     }
 }
 
@@ -303,17 +270,15 @@ mod tests {
         let client = APIClient::new(API_KEY.to_string(), BASE_URL.to_string());
 
         println!("Starting a new generation session...");
-        let stream_result = client
-            .generate(
-                "Briefly describe the characteristics of the Rust language.".to_string(),
-                None,
-                None,
-                512,
-                60,
-                None,
-                Some(TEST_MODEL_ID.to_string()),
-            )
-            .await;
+        let stream_result = client.generate(
+            "Briefly describe the characteristics of the Rust language.".to_string(),
+            None,
+            None,
+            512,
+            60,
+            None,
+            Some(TEST_MODEL_ID.to_string()),
+        ).await;
 
         match stream_result {
             Ok(mut stream) => {
@@ -325,11 +290,7 @@ mod tests {
                                 GenerationYield::Session { session_id } => {
                                     println!("Session started, ID: {}", session_id);
                                 }
-                                GenerationYield::Data {
-                                    delta,
-                                    step,
-                                    tokens,
-                                } => {
+                                GenerationYield::Data { delta, step, tokens } => {
                                     if let Some(text) = delta.text {
                                         print!("{}", text);
                                         full_text.push_str(&text);
@@ -338,10 +299,7 @@ mod tests {
                                     println!(" (step: {}, tokens: {})", step, tokens);
                                 }
                                 GenerationYield::Billing { cost, cost_per_mtk } => {
-                                    println!(
-                                        "\nGeneration complete. Billing info: cost={}, cost_per_mtk={}",
-                                        cost, cost_per_mtk
-                                    );
+                                    println!("\nGeneration complete. Billing info: cost={}, cost_per_mtk={}", cost, cost_per_mtk);
                                     assert!(!full_text.is_empty());
                                 }
                             }
