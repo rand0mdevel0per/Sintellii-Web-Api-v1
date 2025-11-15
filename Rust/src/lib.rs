@@ -1,6 +1,5 @@
-use futures::FutureExt;
-use futures::stream::{self, BoxStream, Stream, StreamExt};
-use reqwest::{Client, IntoUrl};
+use futures::stream::{self, Stream, StreamExt};
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
