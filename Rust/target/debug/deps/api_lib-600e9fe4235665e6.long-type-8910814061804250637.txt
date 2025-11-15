@@ -1,0 +1,3 @@
+dyn futures::Future<Output = Pin<Box<dyn Stream<Item = Result<std::string::String, APIError>> + std::marker::Send>>> + std::marker::Send
+dyn futures::Future<Output = Pin<Box<dyn Stream<Item = Result<std::string::String, APIError>> + std::marker::Send>>> + std::marker::Send: Stream
+Pin<Box<dyn futures::Future<Output = Pin<Box<dyn Stream<Item = Result<std::string::String, APIError>> + std::marker::Send>>> + std::marker::Send>>

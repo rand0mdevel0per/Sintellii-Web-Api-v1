@@ -1,0 +1,1 @@
+Result<Pin<Box<dyn Stream<Item = Result<GenerationYield, APIError>> + std::marker::Send>>, APIError>
