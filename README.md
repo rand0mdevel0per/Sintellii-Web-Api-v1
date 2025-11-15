@@ -107,14 +107,14 @@ client = APIClient(api_key="your_api_key_here")
 
 #### JavaScript
 ```javascript
-import { APIClient } from './sintelli_api.js';
+import { APIClient } from 'https://cdn.jsdelivr.net/gh/rand0mdevel0per/Sintellii-Web-Api-v1@main/JavaScript/sintelli_api.js';
 
 const client = new APIClient("your_api_key_here");
 ```
 
 #### TypeScript
 ```typescript
-import { APIClient } from './sintelli_api.ts';
+import { APIClient } from 'https://cdn.jsdelivr.net/gh/rand0mdevel0per/Sintellii-Web-Api-v1@main/TypeScript/sintelli_api.ts';
 
 const client = new APIClient("your_api_key_here");
 ```
