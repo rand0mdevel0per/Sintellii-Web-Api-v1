@@ -1,1 +1,0 @@
-futures::stream::FlatMap<impl Stream<Item = Result<bytes::bytes::Bytes, reqwest::Error>>, Pin<Box<dyn futures::Future<Output = Pin<Box<dyn Stream<Item = Result<std::string::String, APIError>> + std::marker::Send>>> + std::marker::Send>>, {closure@src\lib.rs:209:48: 209:59}>

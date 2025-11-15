@@ -1,1 +1,0 @@
-futures::stream::FlatMap<impl Stream<Item = Result<bytes::bytes::Bytes, reqwest::Error>>, {async block@src\lib.rs:203:60: 203:70}, {closure@src\lib.rs:203:48: 203:59}>
