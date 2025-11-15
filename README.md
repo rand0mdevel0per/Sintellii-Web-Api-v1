@@ -68,7 +68,7 @@ sintelli_api_client = "0.1.0"
 # No additional dependencies required
 ```
 
-Copy the `sintelli_api.js` file to your project directory.
+Copy the `sintelli_api.js` file to your project directory if you do not want to use a CDN.
 
 ### TypeScript
 
@@ -76,7 +76,7 @@ Copy the `sintelli_api.js` file to your project directory.
 # No additional dependencies required
 ```
 
-Copy the `sintelli_api.ts` file to your project directory.
+Copy the `sintelli_api.ts` file to your project directory if you do not want to use a CDN.
 
 ### Rust
 
@@ -108,6 +108,8 @@ client = APIClient(api_key="your_api_key_here")
 #### JavaScript
 ```javascript
 import { APIClient } from 'https://cdn.jsdelivr.net/gh/rand0mdevel0per/Sintellii-Web-Api-v1@main/JavaScript/sintelli_api.js';
+// Or import directly in your project:
+// import { APIClient } from 'sintelli_api.js'
 
 const client = new APIClient("your_api_key_here");
 ```
@@ -115,6 +117,8 @@ const client = new APIClient("your_api_key_here");
 #### TypeScript
 ```typescript
 import { APIClient } from 'https://cdn.jsdelivr.net/gh/rand0mdevel0per/Sintellii-Web-Api-v1@main/TypeScript/sintelli_api.ts';
+// Or import directly in your project:
+// import { APIClient } from 'sintelli_api.ts'
 
 const client = new APIClient("your_api_key_here");
 ```
